@@ -120,6 +120,20 @@ def create_app(store: Optional[JobStore] = None, settings=None,
         app.state.store.update_transcript(job_id, body.get("segments", []))
         return {"ok": True}
 
+    @app.post("/api/jobs/{job_id}/retry")
+    def retry_job(job_id: str):
+        job = app.state.store.get(job_id)
+        if job is None:
+            raise HTTPException(404, "Job not found")
+        sources = list(app.state.store.job_dir(job_id).glob("source.*"))
+        if not sources:
+            raise HTTPException(400, "Original audio is no longer available; re-upload the file")
+        app.state.store.update_status(job_id, "queued", stage="", progress=0, error="")
+        app.state.executor.submit(
+            _process_job, app.state.store, app.state.settings, app.state.pipeline_run,
+            job_id, sources[0], job["denoise"], job["diarize"])
+        return {"ok": True, "job_id": job_id}
+
     @app.delete("/api/jobs/{job_id}")
     def delete_job(job_id: str):
         if app.state.store.get(job_id) is None:

@@ -77,6 +77,15 @@ async function openJob(id) {
   loadHistory();
 }
 
+async function retryJob() {
+  try {
+    await api(`/api/jobs/${currentJobId}/retry`, { method: "POST" });
+    openJob(currentJobId);   // restarts polling
+  } catch (e) {
+    $("#error-box").innerHTML = `<div>Retry failed: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
 async function refreshJob() {
   let job;
   try { job = await api(`/api/jobs/${currentJobId}`); }
@@ -88,7 +97,12 @@ async function refreshJob() {
   const failed = job.status === "failed";
 
   $("#error-box").classList.toggle("hidden", !failed);
-  if (failed) $("#error-box").textContent = "Something went wrong: " + (job.error || "unknown error");
+  if (failed) {
+    $("#error-box").innerHTML =
+      `<div>Something went wrong: ${escapeHtml(job.error || "unknown error")}</div>` +
+      `<button id="retry-btn" class="primary-btn" style="margin-top:12px">Retry</button>`;
+    $("#retry-btn").onclick = retryJob;
+  }
 
   $("#progress-box").classList.toggle("hidden", done || failed);
   $("#result").classList.toggle("hidden", !done);

@@ -90,6 +90,23 @@ def test_export_after_done(client):
     assert "hello world" in r.text
 
 
+def test_retry_missing_job_404(client):
+    assert client.post("/api/jobs/nope/retry").status_code == 404
+
+
+def test_retry_reruns_existing_audio(client):
+    job_id = _upload(client).json()["job_id"]
+    for _ in range(50):
+        if client.get(f"/api/jobs/{job_id}").json()["status"] == "done":
+            break
+    r = client.post(f"/api/jobs/{job_id}/retry")
+    assert r.status_code == 200
+    for _ in range(50):
+        if client.get(f"/api/jobs/{job_id}").json()["status"] == "done":
+            break
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "done"
+
+
 def test_index_served(client):
     r = client.get("/")
     assert r.status_code == 200
