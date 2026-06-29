@@ -40,3 +40,21 @@ def test_transcribe_passes_audio_through():
     audio = np.ones(5, dtype=np.float32)
     transcribe.transcribe(audio, model=model)
     assert model.called_with is audio
+
+
+def test_resolve_model_prefers_local_dir(tmp_path):
+    # A downloaded model at models/faster-whisper-small should be used by name.
+    local = tmp_path / "faster-whisper-small"
+    local.mkdir()
+    (local / "model.bin").write_bytes(b"x")
+    assert transcribe._resolve_model("small", models_dir=tmp_path) == str(local)
+
+
+def test_resolve_model_falls_back_to_name_when_absent(tmp_path):
+    # No local copy -> return the name so faster-whisper downloads it.
+    assert transcribe._resolve_model("base", models_dir=tmp_path) == "base"
+
+
+def test_resolve_model_passes_through_explicit_path(tmp_path):
+    p = str(tmp_path / "some-dir")
+    assert transcribe._resolve_model(p, models_dir=tmp_path) == p
