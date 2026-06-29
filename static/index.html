@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scribe — local transcription</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo">✎</span>
+      <div>
+        <h1>Scribe</h1>
+        <p class="tagline">local transcription</p>
+      </div>
+    </div>
+    <button id="new-btn" class="ghost-btn">+ New transcription</button>
+    <h2 class="section-label">History</h2>
+    <ul id="history" class="history"></ul>
+    <button id="settings-btn" class="settings-link">⚙ Settings</button>
+  </aside>
+
+  <main class="main">
+    <!-- Upload view -->
+    <section id="upload-view" class="view">
+      <div id="dropzone" class="dropzone">
+        <div class="dz-inner">
+          <div class="dz-icon">⬆</div>
+          <p class="dz-title">Drop an audio or video file here</p>
+          <p class="dz-sub">mp3 · mp4 · m4a · wav · and more — everything stays on your machine</p>
+          <button id="pick-btn" class="primary-btn">Choose a file</button>
+          <input type="file" id="file-input" accept="audio/*,video/*,.mp3,.mp4,.m4a,.wav,.aac,.flac,.ogg,.webm,.mov" hidden />
+        </div>
+      </div>
+      <div class="opt-row">
+        <label class="switch"><input type="checkbox" id="opt-denoise" /> Denoise audio first</label>
+        <label class="switch"><input type="checkbox" id="opt-diarize" /> Detect speakers</label>
+      </div>
+    </section>
+
+    <!-- Processing / result view -->
+    <section id="job-view" class="view hidden">
+      <header class="job-header">
+        <h2 id="job-filename">—</h2>
+        <div class="job-actions" id="export-actions"></div>
+      </header>
+
+      <div id="progress-box" class="progress-box hidden">
+        <div class="stages" id="stages"></div>
+        <div class="bar"><div id="bar-fill" class="bar-fill"></div></div>
+        <p id="progress-label" class="progress-label"></p>
+      </div>
+
+      <div id="error-box" class="error-box hidden"></div>
+
+      <div id="result" class="result hidden">
+        <div class="tabs">
+          <button class="tab active" data-tab="transcript">Transcript</button>
+          <button class="tab" data-tab="summary">Summary</button>
+        </div>
+        <div id="tab-transcript" class="tab-panel">
+          <div id="transcript" class="transcript" contenteditable="false"></div>
+          <div class="transcript-tools">
+            <button id="edit-btn" class="ghost-btn">Edit</button>
+            <button id="save-btn" class="primary-btn hidden">Save changes</button>
+          </div>
+        </div>
+        <div id="tab-summary" class="tab-panel hidden">
+          <div id="summary" class="summary"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Settings</h2>
+      <label class="field">Whisper model
+        <select id="set-whisper">
+          <option value="tiny">tiny (fastest)</option>
+          <option value="base">base</option>
+          <option value="small">small</option>
+          <option value="medium">medium</option>
+          <option value="large-v3">large-v3 (most accurate)</option>
+        </select>
+      </label>
+
+      <label class="field">AI provider (summary + cleanup)
+        <select id="set-provider">
+          <option value="none">None (regex cleanup only)</option>
+          <option value="ollama">Ollama (free, local)</option>
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </label>
+
+      <div class="provider-fields" data-provider="ollama">
+        <label class="field">Ollama host <input id="set-ollama-host" type="text" placeholder="http://localhost:11434" /></label>
+        <label class="field">Ollama model <input id="set-ollama-model" type="text" placeholder="llama3.1" /></label>
+      </div>
+      <div class="provider-fields hidden" data-provider="anthropic">
+        <label class="field">Anthropic API key <input id="set-anthropic-key" type="password" placeholder="sk-ant-…  (leave blank to keep)" /></label>
+        <label class="field">Model <input id="set-anthropic-model" type="text" placeholder="claude-haiku-4-5" /></label>
+      </div>
+      <div class="provider-fields hidden" data-provider="openai">
+        <label class="field">OpenAI API key <input id="set-openai-key" type="password" placeholder="sk-…  (leave blank to keep)" /></label>
+        <label class="field">Model <input id="set-openai-model" type="text" placeholder="gpt-4o-mini" /></label>
+      </div>
+
+      <label class="field">HuggingFace token (for speaker labels)
+        <input id="set-hf" type="password" placeholder="hf_…  (leave blank to keep)" />
+      </label>
+
+      <div class="modal-actions">
+        <button id="settings-cancel" class="ghost-btn">Cancel</button>
+        <button id="settings-save" class="primary-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Secrets and local config
+.env
+config.json
+
+# User data: uploaded audio, generated outputs, job database
+data/
+*.wav
+*.mp3
+*.mp4
+*.m4a
+
+# Model caches
+.cache/
+models/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+[project]
+name = "scribe"
+version = "0.1.0"
+description = "Free, local, self-hosted alternative to Otter.ai: transcribe audio/video with optional speaker labels and AI summaries."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

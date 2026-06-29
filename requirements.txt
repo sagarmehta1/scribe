@@ -1,0 +1,23 @@
+# Core web app
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+python-dotenv
+httpx
+
+# Audio + transcription (no system ffmpeg required — PyAV bundles the codecs)
+av
+numpy
+soundfile
+faster-whisper
+noisereduce
+
+# Optional: speaker diarization (also needs a free HuggingFace token).
+# Heavy (pulls in torch). Install separately if you want speaker labels:
+#   pip install pyannote.audio
+# pyannote.audio
+
+# Dev/test
+pytest
