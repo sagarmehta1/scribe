@@ -23,8 +23,9 @@ def fake_pipeline_run(audio_path, settings, progress):
 def client(tmp_path):
     store = JobStore(db_path=tmp_path / "jobs.db", data_dir=tmp_path / "data")
     settings = config.Settings(llm_provider="none")
+    # Use an isolated config path so settings POSTs never touch the real data/config.json.
     app = create_app(store=store, settings=settings, pipeline_run=fake_pipeline_run,
-                     max_workers=1)
+                     max_workers=1, config_path=tmp_path / "config.json")
     return TestClient(app)
 
 
