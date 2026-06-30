@@ -33,6 +33,11 @@
           <input type="file" id="file-input" accept="audio/*,video/*,.mp3,.mp4,.m4a,.wav,.aac,.flac,.ogg,.webm,.mov" hidden />
         </div>
       </div>
+      <div class="url-row">
+        <input id="url-input" type="text" class="url-input"
+               placeholder="…or paste a YouTube / podcast / audio URL" />
+        <button id="url-btn" class="primary-btn">Fetch</button>
+      </div>
       <div class="opt-row">
         <label class="switch"><input type="checkbox" id="opt-denoise" /> Denoise audio first</label>
         <label class="switch"><input type="checkbox" id="opt-diarize" /> Detect speakers</label>
@@ -55,6 +60,7 @@
       <div id="error-box" class="error-box hidden"></div>
 
       <div id="result" class="result hidden">
+        <audio id="player" class="player" controls preload="none"></audio>
         <div class="tabs">
           <button class="tab active" data-tab="transcript">Transcript</button>
           <button class="tab" data-tab="summary">Summary</button>

@@ -91,6 +91,13 @@ body {
 .dz-sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
 .opt-row { display: flex; gap: 24px; justify-content: center; margin-top: 20px; }
 .switch { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.url-row { display: flex; gap: 10px; margin-top: 18px; }
+.url-input {
+  flex: 1; padding: 11px 14px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 14px;
+}
+.url-input::placeholder { color: var(--muted); }
+.url-input:focus { outline: none; border-color: var(--accent); }
 
 /* Job header */
 .job-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
@@ -112,12 +119,17 @@ body {
 .error-box { background: rgba(248,113,113,.1); border: 1px solid var(--red); color: #fecaca; padding: 16px; border-radius: var(--radius); }
 
 /* Result */
+.player { width: 100%; height: 38px; margin-bottom: 16px; border-radius: 10px; }
 .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
 .tab { background: none; border: none; color: var(--muted); padding: 10px 14px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
 .transcript { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; line-height: 1.7; max-height: 60vh; overflow-y: auto; }
 .transcript[contenteditable="true"] { outline: 1px solid var(--accent); }
-.seg { margin-bottom: 12px; display: flex; gap: 12px; }
+.seg { margin-bottom: 12px; display: flex; gap: 12px; border-radius: 8px; padding: 4px 8px; margin-left: -8px; transition: background .12s; }
+.transcript:not([contenteditable="true"]) .seg { cursor: pointer; }
+.transcript:not([contenteditable="true"]) .seg:hover { background: var(--panel-2); }
+.seg.playing { background: rgba(110, 168, 254, .12); }
+.seg.playing .ts { color: var(--accent); }
 .seg .ts { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; padding-top: 2px; min-width: 56px; }
 .seg .spk { color: var(--accent); font-weight: 600; font-size: 13px; }
 .seg .txt { flex: 1; }

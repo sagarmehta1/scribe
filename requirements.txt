@@ -14,6 +14,7 @@ numpy
 soundfile
 faster-whisper
 noisereduce
+yt-dlp            # fetch audio from a YouTube / podcast / direct media URL
 
 # Optional: speaker diarization (also needs a free HuggingFace token).
 # Heavy (pulls in torch). Install separately if you want speaker labels:

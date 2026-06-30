@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import config, exports
+from . import fetch as fetch_mod
 from . import pipeline as pipeline_mod
 from .jobs import JobStore
 
@@ -51,6 +52,25 @@ def _process_job(store: JobStore, settings, pipeline_run, job_id, audio_path,
         store.update_status(job_id, "failed", error=str(exc))
 
 
+def _process_url_job(store: JobStore, settings, pipeline_run, download_audio, job_id, url,
+                     denoise: bool, diarize: bool) -> None:
+    try:
+        store.update_status(job_id, "running", stage="fetch", progress=2)
+        audio_path, title = download_audio(url, store.job_dir(job_id))
+        if title:
+            store.update_filename(job_id, title)
+    except Exception as exc:
+        store.update_status(job_id, "failed", error=f"Couldn't fetch audio: {exc}")
+        return
+    _process_job(store, settings, pipeline_run, job_id, audio_path, denoise, diarize)
+
+
+class UrlUpload(BaseModel):
+    url: str
+    denoise: Optional[bool] = None
+    diarize: Optional[bool] = None
+
+
 class SettingsUpdate(BaseModel):
     llm_provider: Optional[str] = None
     ollama_host: Optional[str] = None
@@ -70,7 +90,7 @@ _SECRET_FIELDS = ("anthropic_api_key", "openai_api_key", "hf_token")
 
 def create_app(store: Optional[JobStore] = None, settings=None,
                pipeline_run=pipeline_mod.run, max_workers: int = 1,
-               config_path=None) -> FastAPI:
+               config_path=None, download_audio=fetch_mod.download_audio) -> FastAPI:
     app = FastAPI(title="Scribe")
 
     app.state.config_path = config_path
@@ -79,6 +99,10 @@ def create_app(store: Optional[JobStore] = None, settings=None,
     app.state.settings = settings or config.load(path=config_path)
     app.state.executor = ThreadPoolExecutor(max_workers=max_workers)
     app.state.pipeline_run = pipeline_run
+    app.state.download_audio = download_audio
+
+    # Any job still "queued"/"running" at boot was orphaned by the last shutdown.
+    app.state.store.fail_interrupted()
 
     @app.post("/api/upload")
     async def upload(file: UploadFile = File(...),
@@ -102,9 +126,35 @@ def create_app(store: Optional[JobStore] = None, settings=None,
             use_denoise, use_diarize)
         return {"job_id": job_id}
 
+    @app.post("/api/upload-url")
+    def upload_url(body: UrlUpload):
+        url = (body.url or "").strip()
+        if not url:
+            raise HTTPException(400, "No URL provided")
+
+        s = app.state.settings
+        use_denoise = s.denoise if body.denoise is None else body.denoise
+        use_diarize = s.diarize if body.diarize is None else body.diarize
+
+        store = app.state.store
+        job_id = store.create(filename=url, denoise=use_denoise, diarize=use_diarize)
+        app.state.executor.submit(
+            _process_url_job, store, s, app.state.pipeline_run, app.state.download_audio,
+            job_id, url, use_denoise, use_diarize)
+        return {"job_id": job_id}
+
     @app.get("/api/jobs")
     def list_jobs():
         return app.state.store.list()
+
+    @app.get("/api/jobs/{job_id}/audio")
+    def job_audio(job_id: str):
+        if app.state.store.get(job_id) is None:
+            raise HTTPException(404, "Job not found")
+        sources = list(app.state.store.job_dir(job_id).glob("source.*"))
+        if not sources:
+            raise HTTPException(404, "Audio is no longer available")
+        return FileResponse(sources[0])
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str):

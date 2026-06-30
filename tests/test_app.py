@@ -1,6 +1,7 @@
 """API tests using a synchronous fake pipeline (no model loading)."""
 
 import io
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,13 +20,20 @@ def fake_pipeline_run(audio_path, settings, progress):
     }
 
 
+def fake_download(url, dest_dir):
+    p = Path(dest_dir) / "source.m4a"
+    p.write_bytes(b"fetched audio bytes")
+    return p, "Fetched Talk Title"
+
+
 @pytest.fixture
 def client(tmp_path):
     store = JobStore(db_path=tmp_path / "jobs.db", data_dir=tmp_path / "data")
     settings = config.Settings(llm_provider="none")
     # Use an isolated config path so settings POSTs never touch the real data/config.json.
     app = create_app(store=store, settings=settings, pipeline_run=fake_pipeline_run,
-                     max_workers=1, config_path=tmp_path / "config.json")
+                     max_workers=1, config_path=tmp_path / "config.json",
+                     download_audio=fake_download)
     return TestClient(app)
 
 
@@ -119,6 +127,46 @@ def test_delete_removes_job_and_audio(client, tmp_path):
 
 def test_delete_missing_job_404(client):
     assert client.delete("/api/jobs/nope").status_code == 404
+
+
+def test_upload_url_creates_and_titles_job(client):
+    r = client.post("/api/upload-url", json={"url": "https://youtu.be/demo"})
+    assert r.status_code == 200
+    job_id = r.json()["job_id"]
+    for _ in range(50):
+        if client.get(f"/api/jobs/{job_id}").json()["status"] == "done":
+            break
+    job = client.get(f"/api/jobs/{job_id}").json()
+    assert job["status"] == "done"
+    assert job["filename"] == "Fetched Talk Title"  # renamed from URL to video title
+
+
+def test_upload_url_rejects_empty(client):
+    assert client.post("/api/upload-url", json={"url": "  "}).status_code == 400
+
+
+def test_audio_endpoint_serves_source(client):
+    job_id = _upload(client).json()["job_id"]
+    r = client.get(f"/api/jobs/{job_id}/audio")
+    assert r.status_code == 200
+    assert r.content == b"fake audio bytes"
+
+
+def test_audio_endpoint_404_when_missing(client):
+    assert client.get("/api/jobs/nope/audio").status_code == 404
+
+
+def test_interrupted_jobs_failed_on_startup(tmp_path):
+    store = JobStore(db_path=tmp_path / "jobs.db", data_dir=tmp_path / "data")
+    jid = store.create(filename="x.mp3")
+    store.update_status(jid, "running", stage="transcribe", progress=40)
+    # Booting a new app should clear the orphaned "running" job.
+    create_app(store=store, settings=config.Settings(llm_provider="none"),
+               pipeline_run=fake_pipeline_run, config_path=tmp_path / "config.json",
+               download_audio=fake_download)
+    job = store.get(jid)
+    assert job["status"] == "failed"
+    assert "restart" in (job["error"] or "").lower()
 
 
 def test_index_served(client):

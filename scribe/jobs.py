@@ -98,6 +98,24 @@ class JobStore:
         self._result_path(job_id).write_text(
             json.dumps(segments, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def update_filename(self, job_id: str, filename: str) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE jobs SET filename = ? WHERE id = ?", (filename, job_id))
+
+    def fail_interrupted(self, message: str = "Interrupted by a server restart") -> int:
+        """Mark jobs left mid-flight (queued/running) as failed so they can be retried.
+
+        A worker thread cannot survive a process exit, so any such row is a zombie
+        after a restart. Flipping it to failed surfaces the Retry button instead of a
+        spinner that never moves. Returns the number of jobs cleared.
+        """
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE jobs SET status = 'failed', error = ? "
+                "WHERE status IN ('queued', 'running')",
+                (message,))
+            return cur.rowcount
+
     def delete(self, job_id: str) -> None:
         with self._conn() as conn:
             conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))

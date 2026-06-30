@@ -3,13 +3,14 @@
 const $ = (sel) => document.querySelector(sel);
 const STAGES = ["extract", "denoise", "transcribe", "diarize", "clean", "summarize"];
 const STAGE_LABELS = {
-  extract: "Extract", denoise: "Denoise", transcribe: "Transcribe",
+  fetch: "Fetch", extract: "Extract", denoise: "Denoise", transcribe: "Transcribe",
   diarize: "Speakers", clean: "Clean up", summarize: "Summarize", done: "Done",
 };
 
 let currentJobId = null;
 let pollTimer = null;
 let editing = false;
+let playingSeg = null;
 
 // ---------- helpers ----------
 async function api(path, opts) {
@@ -27,6 +28,13 @@ function fmtTime(sec) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   const mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
+function elapsedStr(createdAt) {
+  if (!createdAt) return "";
+  const start = new Date(createdAt).getTime();
+  if (isNaN(start)) return "";
+  return fmtTime(Math.max(0, Math.floor((Date.now() - start) / 1000)));
 }
 
 // ---------- history ----------
@@ -93,6 +101,24 @@ async function uploadFile(file) {
   openJob(job_id);
 }
 
+async function fetchUrl(url) {
+  url = (url || "").trim();
+  if (!url) return;
+  try {
+    const { job_id } = await api("/api/upload-url", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url, denoise: $("#opt-denoise").checked, diarize: $("#opt-diarize").checked,
+      }),
+    });
+    $("#url-input").value = "";
+    await loadHistory();
+    openJob(job_id);
+  } catch (e) {
+    alert(`Couldn't start that URL: ${e.message}`);
+  }
+}
+
 // ---------- job view ----------
 function showView(which) {
   $("#upload-view").classList.toggle("hidden", which !== "upload");
@@ -155,13 +181,39 @@ function renderProgress(job) {
   }).join("");
   $("#bar-fill").style.width = (job.progress || 0) + "%";
   const label = job.stage ? (STAGE_LABELS[job.stage] || job.stage) : "Queued…";
-  $("#progress-label").textContent = `${label} — ${job.progress || 0}%`;
+  const elapsed = elapsedStr(job.created_at);
+  $("#progress-label").textContent =
+    `${label} — ${job.progress || 0}%` + (elapsed ? `   ·   ${elapsed} elapsed` : "");
 }
 
 function renderResult(job) {
+  setupPlayer();
   renderExportButtons();
   renderTranscript(job.segments || []);
   renderSummary(job.summary);
+}
+
+function setupPlayer() {
+  const p = $("#player");
+  playingSeg = null;
+  p.src = `/api/jobs/${currentJobId}/audio`;
+  p.ontimeupdate = () => highlightPlaying(p.currentTime);
+}
+
+// Highlight (and gently scroll to) the segment under the playhead.
+function highlightPlaying(t) {
+  const segs = $("#transcript").querySelectorAll(".seg");
+  let active = null;
+  segs.forEach((s) => {
+    if (t >= parseFloat(s.dataset.start) && t < parseFloat(s.dataset.end)) active = s;
+  });
+  if (active === playingSeg) return;
+  if (playingSeg) playingSeg.classList.remove("playing");
+  playingSeg = active;
+  if (active) {
+    active.classList.add("playing");
+    active.scrollIntoView({ block: "nearest" });
+  }
 }
 
 function renderTranscript(segments) {
@@ -296,6 +348,21 @@ function init() {
     e.preventDefault(); dz.classList.remove("drag");
     if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
   };
+
+  $("#url-btn").onclick = () => fetchUrl($("#url-input").value);
+  $("#url-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") fetchUrl($("#url-input").value);
+  });
+
+  // Click a transcript line to seek the audio there (disabled while editing).
+  $("#transcript").addEventListener("click", (e) => {
+    if (editing) return;
+    const seg = e.target.closest(".seg");
+    if (!seg) return;
+    const p = $("#player");
+    p.currentTime = parseFloat(seg.dataset.start) || 0;
+    p.play().catch(() => {});
+  });
 
   $("#new-btn").onclick = () => { currentJobId = null; clearInterval(pollTimer); showView("upload"); loadHistory(); };
 
