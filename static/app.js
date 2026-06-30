@@ -37,12 +37,39 @@ async function loadHistory() {
   jobs.forEach((j) => {
     const li = document.createElement("li");
     if (j.id === currentJobId) li.classList.add("active");
-    li.innerHTML =
+
+    const info = document.createElement("div");
+    info.className = "h-info";
+    info.innerHTML =
       `<span class="h-name">${escapeHtml(j.filename)}</span>` +
       `<span class="h-meta"><span class="dot ${j.status}"></span>${j.status}</span>`;
-    li.onclick = () => openJob(j.id);
+    info.onclick = () => openJob(j.id);
+
+    const del = document.createElement("button");
+    del.className = "h-del";
+    del.title = "Delete transcript";
+    del.textContent = "×";
+    del.onclick = (e) => { e.stopPropagation(); deleteJob(j.id, j.filename); };
+
+    li.append(info, del);
     ul.appendChild(li);
   });
+}
+
+async function deleteJob(id, name) {
+  if (!confirm(`Delete "${name}"?\nThis removes the transcript and its audio for good.`)) return;
+  try {
+    await api(`/api/jobs/${id}`, { method: "DELETE" });
+  } catch (e) {
+    alert(`Couldn't delete: ${e.message}`);
+    return;
+  }
+  if (id === currentJobId) {
+    currentJobId = null;
+    clearInterval(pollTimer);
+    showView("upload");
+  }
+  loadHistory();
 }
 
 function escapeHtml(s) {

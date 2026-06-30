@@ -107,6 +107,20 @@ def test_retry_reruns_existing_audio(client):
     assert client.get(f"/api/jobs/{job_id}").json()["status"] == "done"
 
 
+def test_delete_removes_job_and_audio(client, tmp_path):
+    job_id = _upload(client).json()["job_id"]
+    job_dir = tmp_path / "data" / job_id
+    assert any(job_dir.glob("source.*"))  # audio was saved
+    r = client.delete(f"/api/jobs/{job_id}")
+    assert r.status_code == 200
+    assert client.get(f"/api/jobs/{job_id}").status_code == 404
+    assert not job_dir.exists()  # audio folder cleaned up
+
+
+def test_delete_missing_job_404(client):
+    assert client.delete("/api/jobs/nope").status_code == 404
+
+
 def test_index_served(client):
     r = client.get("/")
     assert r.status_code == 200
