@@ -17,9 +17,11 @@ class FakeSeg:
 class FakeModel:
     def __init__(self):
         self.called_with = None
+        self.kwargs = {}
 
     def transcribe(self, audio, **kwargs):
         self.called_with = audio
+        self.kwargs = kwargs
         return iter([FakeSeg(0.0, 1.5, " hi "), FakeSeg(1.5, 2.0, "there")]), {"language": "en"}
 
 
@@ -40,6 +42,14 @@ def test_transcribe_passes_audio_through():
     audio = np.ones(5, dtype=np.float32)
     transcribe.transcribe(audio, model=model)
     assert model.called_with is audio
+
+
+def test_transcribe_uses_fast_decode_options():
+    # Speed bundle: greedy decode + VAD silence-skipping (both accuracy-neutral).
+    model = FakeModel()
+    transcribe.transcribe(np.zeros(10, dtype=np.float32), model=model)
+    assert model.kwargs.get("beam_size") == 1
+    assert model.kwargs.get("vad_filter") is True
 
 
 def test_resolve_model_prefers_local_dir(tmp_path):
